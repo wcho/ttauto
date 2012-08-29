@@ -1,0 +1,32 @@
+import time
+
+# Imports the monkeyrunner modules used by this program
+from com.android.monkeyrunner import MonkeyRunner, MonkeyDevice
+
+# Connects to the current device, returning a MonkeyDevice object
+device = MonkeyRunner.waitForConnection()
+
+print 'Connected.'
+
+# sets a variable with the package's internal name
+
+#package = 'wcho.amazing'
+# runcmd = 'am start -a android.intent.action.MAIN -n wcho.amazing/.Cho_sAmazingApp'
+
+runcmd = 'am start -a android.intent.action.MAIN -n kr.daum_mobage.am_db.g13000044/com.ngmoco.gamejs.activity.GameJSActivity'
+
+device.shell(runcmd)
+
+print 'wait 5 secs'
+time.sleep(5)
+print 'waken'
+
+# Presses the Menu button
+device.press('KEYCODE_MENU', MonkeyDevice.DOWN_AND_UP)
+
+# Takes a screenshot
+result = device.takeSnapshot()
+
+# Writes the screenshot to a file
+result.writeToFile('shot1.png','png')
+
