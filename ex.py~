@@ -1,32 +1,339 @@
 import time
+import marshal
+import threading
+import sys
+
 
 # Imports the monkeyrunner modules used by this program
 from com.android.monkeyrunner import MonkeyRunner, MonkeyDevice
 
-# Connects to the current device, returning a MonkeyDevice object
-device = MonkeyRunner.waitForConnection()
 
-print 'Connected.'
+STARTTIME = time.time()
 
-# sets a variable with the package's internal name
+def run(dev):
+    # sets a variable with the package's internal name
+    #package = 'wcho.amazing'
+    #runcmd = 'am start -a android.intent.action.MAIN -n wcho.amazing/.Cho_sAmazingApp'
+    runcmd = 'am start -a android.intent.action.MAIN -n kr.daum_mobage.am_db.g13000044/com.ngmoco.gamejs.activity.GameJSActivity'
+    dev.shell(runcmd)
 
-#package = 'wcho.amazing'
-# runcmd = 'am start -a android.intent.action.MAIN -n wcho.amazing/.Cho_sAmazingApp'
-
-runcmd = 'am start -a android.intent.action.MAIN -n kr.daum_mobage.am_db.g13000044/com.ngmoco.gamejs.activity.GameJSActivity'
-
-device.shell(runcmd)
-
-print 'wait 5 secs'
-time.sleep(5)
-print 'waken'
+def wait():
+    print 'wait 5 secs'
+    time.sleep(5)
+    print 'waken'
 
 # Presses the Menu button
-device.press('KEYCODE_MENU', MonkeyDevice.DOWN_AND_UP)
+#device.press('KEYCODE_MENU', MonkeyDevice.DOWN_AND_UP)
 
+def up(d):
+    d.drag((200,200),(200,237),0.1,1)
+    time.sleep(1.1)
+
+def down(d):
+    d.drag((200,237),(200,200),0.1,1)
+    time.sleep(1)
+
+def gotoStart(d):
+    for i in range(3):
+        d.drag((50,1000),(50,100),0.1,1)
+        time.sleep(1)
+
+def gotoStartElev(d):
+    d.drag((500,1000),(500,100),5,1)
+    time.sleep(1)
+
+def gotoTop(d):
+    for i in range(3):
+        d.drag((200,100),(200,1000),0.1,1)
+        time.sleep(0.5)
+    
 # Takes a screenshot
-result = device.takeSnapshot()
+def shot(d):
+    result = d.takeSnapshot()
+    # Writes the screenshot to a file
+    result.writeToFile(str(time.time())+'.png','png')
 
-# Writes the screenshot to a file
-result.writeToFile('shot1.png','png')
+def clickFloor(d):
+    d.touch(500,700,MonkeyDevice.DOWN_AND_UP)
+    time.sleep(0.5)
 
+def clickContinue(d):
+    d.touch(400,850,MonkeyDevice.DOWN_AND_UP)
+    time.sleep(0.5)
+
+def clickYes(d):
+    d.touch(500,850,MonkeyDevice.DOWN_AND_UP)
+    time.sleep(0.5)
+
+def clickNo(d):
+    d.touch(300,850,MonkeyDevice.DOWN_AND_UP)
+    time.sleep(0.5)
+
+def clickYesExit(d):
+    d.touch(240,750,MonkeyDevice.DOWN_AND_UP)
+    time.sleep(0.5)
+
+def clickNoExit(d):
+    d.touch(550,750,MonkeyDevice.DOWN_AND_UP)
+    time.sleep(0.5)
+
+def clickAlert(d,nth):
+    d.touch(95*nth+50, 1150, MonkeyDevice.DOWN_AND_UP)
+    time.sleep(0.5)
+
+def clickFinishedBusiness(d):
+    d.touch(400, 500, MonkeyDevice.DOWN_AND_UP)
+    time.sleep(0.5)
+
+def back(d):
+    d.press('KEYCODE_BACK', 'DOWN_AND_UP')
+    time.sleep(0.5)
+
+def clickDeliveryMan(d):
+    d.touch(70, 860, MonkeyDevice.DOWN_AND_UP)
+    time.sleep(0.5)
+    
+def clickElevUp(d):
+    # d.drag((500,1000),(500,100),5,1)
+    # time.sleep(1)
+    d.touch(280, 1050, MonkeyDevice.DOWN)
+    time.sleep(0.05)
+    d.touch(280, 1050, MonkeyDevice.UP)
+    time.sleep(1.5)
+
+def cropDelivery(img):
+    return img.getSubImage((30,1000,100,100))
+
+def cropCloseButton(img):
+    return img.getSubImage((690,1170,95,95))
+
+def cropContinueButton(img):
+    return img.getSubImage((349,822,95,95))
+
+def cropElevButton(img):
+    return img.getSubImage((250,1000,95,95))
+
+def cropExitButton(img):
+    return img.getSubImage((90,520,95,95))
+
+def _save():
+    i = MonkeyRunner.loadImageFromFile(os.getcwd()+"/"+'_close.png')
+    ico = cropCloseButton(i)
+    ico.writeToFile(os.getcwd()+"/"+"ico_close.png","png")
+
+def hasCloseButton(d, screen = None):
+    if screen == None:
+        screen = d.takeSnapshot()
+    btn = cropCloseButton(screen)
+    return btn.sameAs(CLOSEICON, SIM)
+
+def hasContinueButton(d, screen = None):
+    if screen == None:
+        screen = d.takeSnapshot()
+    btn = cropContinueButton(screen)
+    return btn.sameAs(CONTICON, SIM)
+
+def hasElevButton(d, screen = None):
+    if screen == None:
+        screen = d.takeSnapshot()
+    btn = cropElevButton(screen)
+    return btn.sameAs(ELEVICON, SIM)
+
+def hasExitButton(d, screen = None):
+    if screen == None:
+        screen = d.takeSnapshot()
+        
+    btn = cropExitButton(screen)
+    return btn.sameAs(EXITICON,SIM)
+
+def exit(d):
+    while True:
+        back(d)
+        back(d)
+        back(d)
+        screen = d.takeSnapshot()
+        if(hasExitButton(d, screen)):
+            clickYesExit(d)
+            break
+
+SIM = 0.7
+CLOSEICON = MonkeyRunner.loadImageFromFile(os.getcwd()+"/"+"ico_close.png")
+CONTICON = MonkeyRunner.loadImageFromFile(os.getcwd()+"/"+"ico_cont.png")
+ELEVICON = MonkeyRunner.loadImageFromFile(os.getcwd()+"/"+"ico_elev_btn.png")
+EXITICON = MonkeyRunner.loadImageFromFile(os.getcwd()+"/"+"ico_exit.png")
+
+ICON2 = {
+    "deli": MonkeyRunner.loadImageFromFile(os.getcwd()+"/"+"ico_deli.png"),
+    "elev": MonkeyRunner.loadImageFromFile(os.getcwd()+"/"+"ico_elev.png"),
+    "finish": MonkeyRunner.loadImageFromFile(os.getcwd()+"/"+"ico_finish.png"),
+    "empty": MonkeyRunner.loadImageFromFile(os.getcwd()+"/"+"ico_empty.png"),
+    "vip": MonkeyRunner.loadImageFromFile(os.getcwd()+"/"+"ico_vip.png"),
+    }
+
+def getAlertsType(d, scr = None):
+    if scr == None:
+        scr = d.takeSnapshot()
+
+    types = []
+    alerts = getAlerts(d, scr)
+    for i in range(len(alerts)):
+        for icon in ICON2:
+            if ICON2[icon].sameAs(alerts[i], SIM):
+                types.append(icon)
+                break
+    return types
+
+
+
+STAT = {'deli':0, 'elev':0, 'finish':0}
+def main():
+    dev = MonkeyRunner.waitForConnection()
+    print 'Connected.'
+    dev.drag((200,511), (200,200), 0.1, 1)
+    return dev
+
+STOP = 0
+RESTART_TERM = 60*60
+class AlertLoopThread(threading.Thread):
+    def __init__(self, d):
+        threading.Thread.__init__(self)
+        self.d = d
+
+    def run(self):
+        global STAT, STARTTIME
+        iter = 0
+        STARTTIME = time.time()
+        while not STOP:
+            print "iter", iter
+            handleAlert(d)
+            time.sleep(1)
+            iter = iter + 1
+            elapsed = int(time.time() - STARTTIME)
+            print STAT, "elapsed:", elapsed, batt(d)
+            if(elapsed > RESTART_TERM):
+                print "Restart", time.localtime()
+                exit(d)
+                run(d)
+                STARTTIME=time.time()
+        print "Stop loop!"
+
+def runLoop(d):
+    t = AlertLoopThread(d)
+    t.start()
+
+def t():
+    print time.time()
+    
+def handleAlert(d):
+    types = getAlertsType(d)
+    print types
+    brk = 0
+
+    scr = d.takeSnapshot()
+    
+    if hasExitButton(d, scr):
+        print "click exit no"
+        clickNoExit(d)
+        return
+    
+    if hasCloseButton(d, scr):
+        print "click close"
+        back(d)
+        return
+    
+    if hasContinueButton(d, scr):
+        print "click continue"
+        back(d)
+        return
+    
+    for ti in range(len(types)):
+        if types[ti] == "finish":
+            print "handling finish: ", ti
+            clickAlert(d, ti)
+            time.sleep(1)
+            clickFinishedBusiness(d)
+            STAT['finish'] = STAT['finish'] + 1
+            return
+        elif types[ti] == "deli":
+            print "handling delivery: ", ti
+            clickAlert(d, ti)
+            clickYes(d)
+            time.sleep(0.5)
+            findDeli(d)
+            STAT['deli'] = STAT['deli'] + 1
+            return
+    for ti in reversed(range(len(types))):
+        if types[ti] == "elev":
+            print "handling elevator: ", ti
+            clickAlert(d, ti)
+            time.sleep(1.5)
+            clickDeliveryMan(d)
+            findElev(d)
+            STAT['elev'] = STAT['elev'] + 1
+            return
+
+def findElev(d):
+    elevMode = True
+    while elevMode:
+        sys.stdout.write('.')
+        gotoStartElev(d)
+        for ei in range(90):
+            screen = d.takeSnapshot()
+            if not hasElevButton(d, screen):
+                print "Found elevator! at ", ei
+                if hasContinueButton(d, screen):
+                    back(d)
+                if hasCloseButton(d, screen):
+                    back(d)
+                return
+            else:
+                clickElevUp(d)
+        elevMode = hasElevButton(d)
+
+def getAlerts(d, scr = None):
+    if scr == None:
+        scr = d.takeSnapshot()
+    return listAlerts(scr)
+
+def listAlerts(img):
+    x = 0
+    y = 1106
+    w = 95
+    h = 95
+    alerts = []
+    for i in range(8):
+        rect = (x,y,w,h)
+        alerts.append(img.getSubImage(rect))
+        x = x + w
+        y = y
+    return alerts
+
+def saveAlerts(d):
+    screen = d.takeSnapshot()
+    alerts = listAlerts(screen)
+    for i in range(len(alerts)):
+        alerts[i].writeToFile(os.getcwd()+"/"+"alert"+str(i)+".png", "png")
+
+def findDeli(d):
+    gotoStart(d)
+    time.sleep(0.5)
+    for i in range(90):
+        clickFloor(d)
+        sys.stdout.write('.')
+        if i % 6 == 0 and not hasContinueButton(d):
+            back(d)
+            print "Found! at", i
+            break
+        else:
+            back(d)
+        up(d)
+
+def batt(d):
+    dump = d.shell("dumpsys battery").encode('ascii')
+    return dump.split("\r\n")[6].strip()
+    
+def r():
+    global d
+    d = main()
+    runLoop(d)
+   

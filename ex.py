@@ -2,10 +2,14 @@ import time
 import marshal
 import threading
 import sys
+import os
 
 
 # Imports the monkeyrunner modules used by this program
 from com.android.monkeyrunner import MonkeyRunner, MonkeyDevice
+
+
+STARTTIME = time.time()
 
 def run(dev):
     # sets a variable with the package's internal name
@@ -113,62 +117,73 @@ def cropElevButton(img):
 def cropExitButton(img):
     return img.getSubImage((90,520,95,95))
 
+def _save():
+    i = MonkeyRunner.loadImageFromFile(os.getcwd()+"/"+'_close.png')
+    ico = cropCloseButton(i)
+    ico.writeToFile(os.getcwd()+"/"+"ico_close.png","png")
+
 def hasCloseButton(d, screen = None):
     if screen == None:
         screen = d.takeSnapshot()
-    cb = cropCloseButton(screen)
-    cbRaw = getRawImg(cb)
-    return equalRawImgs(cbRaw, CLOSEICON)
+    btn = cropCloseButton(screen)
+    return btn.sameAs(CLOSEICON, SIM)
 
 def hasContinueButton(d, screen = None):
     if screen == None:
         screen = d.takeSnapshot()
-    cb = cropContinueButton(screen)
-    cbRaw = getRawImg(cb)
-    return equalRawImgs(cbRaw, CONTICON)
+    btn = cropContinueButton(screen)
+    return btn.sameAs(CONTICON, SIM)
 
 def hasElevButton(d, screen = None):
     if screen == None:
         screen = d.takeSnapshot()
     btn = cropElevButton(screen)
-    btnRaw = getRawImg(btn)
-    return equalRawImgs(btnRaw, ELEVICON)
+    return btn.sameAs(ELEVICON, SIM)
 
 def hasExitButton(d, screen = None):
     if screen == None:
         screen = d.takeSnapshot()
+        
     btn = cropExitButton(screen)
-    btnRaw = getRawImg(btn)
-    return equalRawImgs(btnRaw, EXITICON)
+    return btn.sameAs(EXITICON,SIM)
 
-def getRawImgFromFile(filename):
-    f = open(filename, "r")
-    return marshal.load(f)
+def exit(d):
+    while True:
+        back(d)
+        back(d)
+        back(d)
+        screen = d.takeSnapshot()
+        if(hasExitButton(d, screen)):
+            clickYesExit(d)
+            break
 
-ICON = {
-    "deli": getRawImgFromFile("deli.dat"),
-    "elev": getRawImgFromFile("elev.dat"),
-    "empty": getRawImgFromFile("empty.dat"),
-    "finish": getRawImgFromFile("finish.dat"),
-    "vip": getRawImgFromFile("vip.dat"),
+SIM = 0.7
+CLOSEICON = MonkeyRunner.loadImageFromFile(os.getcwd()+"/"+"ico_close.png")
+CONTICON = MonkeyRunner.loadImageFromFile(os.getcwd()+"/"+"ico_cont.png")
+ELEVICON = MonkeyRunner.loadImageFromFile(os.getcwd()+"/"+"ico_elev_btn.png")
+EXITICON = MonkeyRunner.loadImageFromFile(os.getcwd()+"/"+"ico_exit.png")
+
+ICON2 = {
+    "deli": MonkeyRunner.loadImageFromFile(os.getcwd()+"/"+"ico_deli.png"),
+    "elev": MonkeyRunner.loadImageFromFile(os.getcwd()+"/"+"ico_elev.png"),
+    "finish": MonkeyRunner.loadImageFromFile(os.getcwd()+"/"+"ico_finish.png"),
+    "empty": MonkeyRunner.loadImageFromFile(os.getcwd()+"/"+"ico_empty.png"),
+    "vip": MonkeyRunner.loadImageFromFile(os.getcwd()+"/"+"ico_vip.png"),
     }
-CLOSEICON = getRawImgFromFile("close.dat")
-CONTICON = getRawImgFromFile("cont.dat")
-ELEVICON = getRawImgFromFile("elev_btn.dat")
-EXITICON = getRawImgFromFile("exit.dat")
 
 def getAlertsType(d, scr = None):
     if scr == None:
         scr = d.takeSnapshot()
 
     types = []
-    alertRawImgs = [getRawImg(img) for img in getAlerts(d, scr)]
-    for i in range(len(alertRawImgs)):
-        for icon in ICON:
-            if equalRawImgs(ICON[icon], alertRawImgs[i]):
+    alerts = getAlerts(d, scr)
+    for i in range(len(alerts)):
+        for icon in ICON2:
+            if ICON2[icon].sameAs(alerts[i], SIM):
                 types.append(icon)
                 break
     return types
+
 
 
 STAT = {'deli':0, 'elev':0, 'finish':0}
@@ -178,47 +193,70 @@ def main():
     dev.drag((200,511), (200,200), 0.1, 1)
     return dev
 
+def restart(d):
+    exit(d)
+    time.sleep(3)
+    run(d)
+    time.sleep(5)
+
 STOP = 0
+RESTART_TERM = 60*60
 class AlertLoopThread(threading.Thread):
     def __init__(self, d):
         threading.Thread.__init__(self)
         self.d = d
 
     def run(self):
-        global STAT
+        global STAT, STARTTIME
         iter = 0
+        STARTTIME = time.time()
         while not STOP:
             print "iter", iter
             handleAlert(d)
-            time.sleep(3)
+            time.sleep(1)
             iter = iter + 1
-            print STAT
+            elapsed = int(time.time() - STARTTIME)
+            print STAT, "elapsed:", elapsed, batt(d)
+            if(elapsed > RESTART_TERM):
+                print "Restart", time.localtime()
+                restart(d)
+                STARTTIME=time.time()
         print "Stop loop!"
 
 def runLoop(d):
     t = AlertLoopThread(d)
     t.start()
 
+def t():
+    print time.time()
+    
 def handleAlert(d):
     types = getAlertsType(d)
     print types
     brk = 0
 
     scr = d.takeSnapshot()
+    
     if hasExitButton(d, scr):
         print "click exit no"
         clickNoExit(d)
         return
+    
     if hasCloseButton(d, scr):
         print "click close"
         back(d)
         return
-
+    
+    if hasContinueButton(d, scr):
+        print "click continue"
+        back(d)
+        return
+    
     for ti in range(len(types)):
         if types[ti] == "finish":
             print "handling finish: ", ti
             clickAlert(d, ti)
-            time.sleep(2)
+            time.sleep(1)
             clickFinishedBusiness(d)
             STAT['finish'] = STAT['finish'] + 1
             return
@@ -226,7 +264,7 @@ def handleAlert(d):
             print "handling delivery: ", ti
             clickAlert(d, ti)
             clickYes(d)
-            time.sleep(3)
+            time.sleep(0.5)
             findDeli(d)
             STAT['deli'] = STAT['deli'] + 1
             return
@@ -234,7 +272,7 @@ def handleAlert(d):
         if types[ti] == "elev":
             print "handling elevator: ", ti
             clickAlert(d, ti)
-            time.sleep(3)
+            time.sleep(1.5)
             clickDeliveryMan(d)
             findElev(d)
             STAT['elev'] = STAT['elev'] + 1
@@ -245,7 +283,7 @@ def findElev(d):
     while elevMode:
         sys.stdout.write('.')
         gotoStartElev(d)
-        for ei in range(80):
+        for ei in range(90):
             screen = d.takeSnapshot()
             if not hasElevButton(d, screen):
                 print "Found elevator! at ", ei
@@ -276,44 +314,19 @@ def listAlerts(img):
         y = y
     return alerts
 
-#(349,822,95,95)
-
-def writeSubImgToFileAsRaw(d, rect, filename):
-    screen = d.takeSnapshot()
-    subimg = screen.getSubImage(rect)
-    writeImgToFileAsRaw(filename, subimg)
-
-def writeImgToFileAsRaw(filename, img):
-    f = open(filename, "wb")
-    marshal.dump(getRawImg(img), f)
-    f.close()
-    
 def saveAlerts(d):
     screen = d.takeSnapshot()
     alerts = listAlerts(screen)
     for i in range(len(alerts)):
-        alerts[i].writeToFile("alert"+str(i)+".png", "png")
-        writeImgToFileAsRaw("alert"+str(i)+".dat", alerts[i])
-
-def getRawImg(img):
-    return [img.getRawPixelInt(x,y) for x in range(95) for y in range(95)]
-
-def equalRawImgs(i1, i2):
-    return compareRawImgs(i1, i2) < 0.3
-
-def compareRawImgs(i1, i2):
-    size = len(i1) * 1.0
-    diff = reduce(lambda acc,d: acc if d == 0 else acc+1, [((0xffffff & i1[i]) - (0xffffff & i2[i])) for i in range(size)], 0) / size
-    #print diff
-    return diff
+        alerts[i].writeToFile(os.getcwd()+"/"+"alert"+str(i)+".png", "png")
 
 def findDeli(d):
     gotoStart(d)
-    time.sleep(1)
-    for i in range(80):
+    time.sleep(0.5)
+    for i in range(90):
         clickFloor(d)
         sys.stdout.write('.')
-        if i % 10 == 9 and not hasContinueButton(d):
+        if i % 6 == 0 and not hasContinueButton(d):
             back(d)
             print "Found! at", i
             break
@@ -321,3 +334,12 @@ def findDeli(d):
             back(d)
         up(d)
 
+def batt(d):
+    dump = d.shell("dumpsys battery").encode('ascii')
+    return dump.split("\r\n")[6].strip()
+    
+def r():
+    global d
+    d = main()
+    runLoop(d)
+   
